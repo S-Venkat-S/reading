@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hourly Reading</title>
+</head>
+
+<body>
+    <style>
+        form {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+        }
+
+        form div {
+            margin-bottom: 15px;
+        }
+
+        form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        form input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #preview {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button[type="submit"] {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+        #copyButton {
+            display: none;
+            margin-top: 10px;
+            background-color: #007BFF;
+            color: #fff;
+        }
+    </style>
+    <script>
+        const data = [
+            { id: "HOUR", type: "number" },
+            { id: "MJPT", type: "number" },
+            { id: "KRYND", type: "number" },
+            { id: "IJT", type: "number" },
+            { id: "PPADU", type: "number" },
+            { id: "TWAD", type: "number" },
+            { id: "MILL", type: "number" },
+            { id: "SRG", type: "number" },
+            { id: "SUN", type: "number", multiplier: 300 },
+            { id: "33GC", type: "number", multiplier: 300 },
+            { id: "PF", type: "number" },
+            { id: "PPURAM", type: "number" },
+            { id: "33LV", type: "number" },
+            { id: "110GC", type: "number", multiplier: 150 },
+            { id: "FREQ", type: "number" },
+        ];
+
+        const form = document.createElement('form');
+
+        data.forEach(item => {
+            const wrapper = document.createElement('div');
+
+            const label = document.createElement('label');
+            label.setAttribute('for', item.id);
+            label.innerHTML = item.id + (item.multiplier ? ` <span style="color: red; font-weight: normal;">(x${item.multiplier})</span>` : '');
+
+            const input = document.createElement('input');
+            input.setAttribute('id', item.id);
+            input.setAttribute('name', item.id);
+            input.setAttribute('type', item.type);
+            input.setAttribute('step', 0.001);
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(input);
+            form.appendChild(wrapper);
+        });
+
+        const previewDiv = document.createElement('div');
+        previewDiv.setAttribute('id', 'preview');
+
+        function renderRecords(content) {
+            previewDiv.innerHTML = '';
+            if (!content) return;
+            const lines = content.split('\n');
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                const div = document.createElement('div');
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.justifyContent = 'space-between';
+                div.style.padding = '5px 0';
+                div.style.borderBottom = '1px solid #ddd';
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = line;
+                textSpan.className = 'record-text';
+                textSpan.style.wordBreak = 'break-all';
+                textSpan.style.marginRight = '10px';
+                textSpan.style.flexGrow = '1';
+
+                const icon = document.createElement('span');
+                icon.innerHTML = '&#x1F4CB;'; // Clipboard icon
+                icon.style.cursor = 'pointer';
+                icon.title = 'Copy this record';
+                icon.style.fontSize = '1.2em';
+                icon.onclick = () => {
+                    const text = textSpan.textContent;
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            icon.innerHTML = '&#x2714;'; // Checkmark
+                            setTimeout(() => icon.innerHTML = '&#x1F4CB;', 1000);
+                        });
+                    } else {
+                        // Fallback
+                        const textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        try {
+                            document.execCommand('copy');
+                            icon.innerHTML = '&#x2714;';
+                            setTimeout(() => icon.innerHTML = '&#x1F4CB;', 1000);
+                        } catch (err) {
+                            console.error('Fallback copy failed', err);
+                        }
+                        document.body.removeChild(textarea);
+                    }
+                };
+
+                div.appendChild(textSpan);
+                div.appendChild(icon);
+                previewDiv.appendChild(div);
+            });
+        }
+
+        const copyButton = document.createElement('button');
+        copyButton.setAttribute('id', 'copyButton');
+        copyButton.innerHTML = '&#x1F4CB; Copy ALL to clipboard';
+        copyButton.style.width = '100%';
+        copyButton.addEventListener('click', () => {
+            const recordSpans = previewDiv.querySelectorAll('.record-text');
+            let previewText = '';
+            if (recordSpans.length > 0) {
+                previewText = Array.from(recordSpans).map(s => s.textContent).join('\n');
+            } else {
+                previewText = previewDiv.textContent;
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(previewText).then(() => {
+                    alert('Copied all to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                });
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = previewText;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Copied all to clipboard!');
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                const shareData = {
+                    text: previewText
+                };
+                if (navigator.share) {
+                    navigator.share(shareData).then(() => {
+                        // alert('Shared successfully!');
+                    }).catch(err => {
+                        console.error('Failed to share: ', err);
+                    });
+                }
+                document.body.removeChild(textarea);
+            }
+        });
+
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Submit';
+        submitButton.setAttribute('type', 'submit');
+        form.appendChild(submitButton);
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const result = {};
+            formData.forEach((value, key) => {
+                const item = data.find(d => d.id === key);
+                const displayValue = item && item.multiplier ? (value * item.multiplier).toFixed(1) : value;
+                result[key] = parseFloat(displayValue);
+            });
+            result["PTR1"] = result["MJPT"] + result["KRYND"];
+            result["PTR2"] = result["IJT"] + result["PPADU"] + result["TWAD"] + result["MILL"];
+            result["PTR3"] = result["PTR1"] + result["PTR2"];
+            result["MW"] = (result["PTR3"] / 60).toFixed(1);
+            const keysOrder = ["MW", "110GC", "SRG", "SUN", "33GC", "PPURAM", "33LV", "MJPT", "KRYND", "IJT", "PPADU", "TWAD", "MILL", "PTR1", "PTR2", "PTR3", "FREQ", "PF"];
+            const orderedValues = [];
+            keysOrder.forEach(key => {
+                if (result.hasOwnProperty(key)) {
+                    orderedValues.push(result[key]);
+                }
+            });
+
+            const recordString = result["HOUR"] + " - " + orderedValues.join(', ');
+
+            renderRecords(recordString);
+            copyButton.style.display = 'block';
+
+            const existingContent = localStorage.getItem('previewContent');
+            if (existingContent) {
+                localStorage.setItem('previewContent', existingContent + '\n' + recordString);
+            } else {
+                localStorage.setItem('previewContent', recordString);
+            }
+
+            copyButton.focus();
+        });
+
+        document.body.appendChild(form);
+        document.body.appendChild(previewDiv);
+        document.body.appendChild(copyButton);
+
+        const firstInput = form.querySelector('input');
+        if (firstInput) {
+            firstInput.focus();
+        }
+
+        let showButton = document.getElementById('showButton');
+        if (!showButton) {
+            showButton = document.createElement('button');
+            showButton.setAttribute('id', 'showButton');
+            showButton.textContent = 'Show Prev Readings';
+            showButton.style.marginTop = '10px';
+            showButton.style.backgroundColor = '#17a2b8';
+            showButton.style.color = '#fff';
+            showButton.style.width = '100%';
+            showButton.addEventListener('click', () => {
+                const storedContent = localStorage.getItem('previewContent');
+                if (storedContent) {
+                    renderRecords(storedContent);
+                    copyButton.style.display = 'block';
+                } else {
+                    alert('No data found in LocalStorage!');
+                }
+            });
+            document.body.appendChild(showButton);
+        }
+
+        let deleteButton = document.getElementById('deleteButton');
+        if (!deleteButton) {
+            deleteButton = document.createElement('button');
+            deleteButton.setAttribute('id', 'deleteButton');
+            deleteButton.textContent = 'Delete Prev Readings';
+            deleteButton.style.marginTop = '10px';
+            deleteButton.style.backgroundColor = '#dc3545';
+            deleteButton.style.color = '#fff';
+            deleteButton.style.width = '100%';
+            deleteButton.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete the stored data?')) {
+                    localStorage.removeItem('previewContent');
+                    alert('LocalStorage cleared!');
+                    previewDiv.innerHTML = '';
+                    copyButton.style.display = 'none';
+                }
+            });
+            document.body.appendChild(deleteButton);
+        }
+    </script>
+</body>
+
+</html>
