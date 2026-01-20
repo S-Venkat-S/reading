@@ -68,10 +68,10 @@
     <script>
         const data = [
             { id: "HOUR", type: "number" },
-            { id: "MJPT", type: "number" },
-            { id: "KRYND", type: "number" },
+            { id: "MJPT", type: "number", note: "முனைஞ்சிபட்டி" },
+            { id: "KRYND", type: "number", note: "காரியாண்டி" },
             { id: "IJT", type: "number" },
-            { id: "PPADU", type: "number" },
+            { id: "PPADU", type: "number", note: "பருத்திப்பாடு" },
             { id: "TWAD", type: "number" },
             { id: "MILL", type: "number" },
             { id: "SRG", type: "number" },
@@ -90,8 +90,9 @@
             const wrapper = document.createElement('div');
 
             const label = document.createElement('label');
-            label.setAttribute('for', item.id);
-            label.innerHTML = item.id + (item.multiplier ? ` <span style="color: red; font-weight: normal;">(x${item.multiplier})</span>` : '');
+            label.innerHTML = `${item.id} 
+                ${item.note ? `<span style="color: #666; font-size: 0.9em; font-weight: normal; font-style: italic;">- ${item.note}</span>` : ''}
+                ${item.multiplier ? `<span style="color: red; font-weight: normal; margin-left: 5px;">(x${item.multiplier})</span>` : ''}`;
 
             const input = document.createElement('input');
             input.setAttribute('id', item.id);
