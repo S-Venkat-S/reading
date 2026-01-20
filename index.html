@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hourly Reading</title>
+    <link rel="icon" href="favicon.png" type="image/png">
 </head>
 
 <body>
@@ -106,12 +107,27 @@
         const previewDiv = document.createElement('div');
         previewDiv.setAttribute('id', 'preview');
 
-        function renderRecords(content) {
+        function getStoredDetails() {
+            const content = localStorage.getItem('previewContent');
+            return content ? content.split('\n').filter(line => line.trim() !== '') : [];
+        }
+
+        function saveStoredDetails(lines) {
+            if (lines.length > 0) {
+                localStorage.setItem('previewContent', lines.join('\n'));
+            } else {
+                localStorage.removeItem('previewContent');
+            }
+        }
+
+        function renderRecords(items, isFullList = false) {
             previewDiv.innerHTML = '';
-            if (!content) return;
-            const lines = content.split('\n');
-            lines.forEach(line => {
-                if (!line.trim()) return;
+            if (!items || items.length === 0) {
+                copyButton.style.display = 'none';
+                return;
+            }
+
+            items.forEach((item) => {
                 const div = document.createElement('div');
                 div.style.display = 'flex';
                 div.style.alignItems = 'center';
@@ -120,34 +136,42 @@
                 div.style.borderBottom = '1px solid #ddd';
 
                 const textSpan = document.createElement('span');
-                textSpan.textContent = line;
+                textSpan.textContent = item.text;
                 textSpan.className = 'record-text';
-                textSpan.style.wordBreak = 'break-all';
+                // User requested to only fold at spaces. 
+                // 'break-all' forces breaks *within* words/numbers. 
+                // Removing it or using 'overflow-wrap: anywhere' or 'word-break: normal' is better.
+                // 'overflow-wrap: anywhere' allows breaking long words if they overflow, but prefers spaces.
+                textSpan.style.overflowWrap = 'anywhere';
                 textSpan.style.marginRight = '10px';
                 textSpan.style.flexGrow = '1';
 
-                const icon = document.createElement('span');
-                icon.innerHTML = '&#x1F4CB;'; // Clipboard icon
-                icon.style.cursor = 'pointer';
-                icon.title = 'Copy this record';
-                icon.style.fontSize = '1.2em';
-                icon.onclick = () => {
+                const actionContainer = document.createElement('div');
+                actionContainer.style.display = 'flex';
+                actionContainer.style.gap = '10px';
+
+                // Copy Icon
+                const copyIcon = document.createElement('span');
+                copyIcon.innerHTML = '&#x1F4CB;'; // Clipboard
+                copyIcon.style.cursor = 'pointer';
+                copyIcon.title = 'Copy this record';
+                copyIcon.style.fontSize = '1.2em';
+                copyIcon.onclick = () => {
                     const text = textSpan.textContent;
                     if (navigator.clipboard) {
                         navigator.clipboard.writeText(text).then(() => {
-                            icon.innerHTML = '&#x2714;'; // Checkmark
-                            setTimeout(() => icon.innerHTML = '&#x1F4CB;', 1000);
+                            copyIcon.innerHTML = '&#x2714;';
+                            setTimeout(() => copyIcon.innerHTML = '&#x1F4CB;', 1000);
                         });
                     } else {
-                        // Fallback
                         const textarea = document.createElement('textarea');
                         textarea.value = text;
                         document.body.appendChild(textarea);
                         textarea.select();
                         try {
                             document.execCommand('copy');
-                            icon.innerHTML = '&#x2714;';
-                            setTimeout(() => icon.innerHTML = '&#x1F4CB;', 1000);
+                            copyIcon.innerHTML = '&#x2714;';
+                            setTimeout(() => copyIcon.innerHTML = '&#x1F4CB;', 1000);
                         } catch (err) {
                             console.error('Fallback copy failed', err);
                         }
@@ -155,10 +179,54 @@
                     }
                 };
 
+                // Delete Icon
+                const deleteIcon = document.createElement('span');
+                deleteIcon.innerHTML = '&#128465;'; // Trash can
+                deleteIcon.style.cursor = 'pointer';
+                deleteIcon.title = 'Delete this record';
+                deleteIcon.style.fontSize = '1.2em';
+                deleteIcon.style.color = '#dc3545';
+                deleteIcon.onclick = () => {
+                    if (confirm('Delete this line?')) {
+                        const allRecords = getStoredDetails();
+                        // item.index is the index in the *original* file when rendered
+                        if (allRecords[item.index] === item.text) {
+                            allRecords.splice(item.index, 1);
+                            saveStoredDetails(allRecords);
+
+                            if (isFullList) {
+                                // Refresh the full list view
+                                showAllRecords();
+                            } else {
+                                // Single item view (just added), simply clear
+                                previewDiv.innerHTML = '';
+                                copyButton.style.display = 'none';
+                            }
+                        } else {
+                            alert('Error: Record changed, please reload.');
+                            showAllRecords();
+                        }
+                    }
+                };
+
+                actionContainer.appendChild(copyIcon);
+                actionContainer.appendChild(deleteIcon);
+
                 div.appendChild(textSpan);
-                div.appendChild(icon);
+                div.appendChild(actionContainer);
                 previewDiv.appendChild(div);
             });
+
+            // Check global copy button visibility
+            if (items.length > 0) {
+                copyButton.style.display = 'block';
+            }
+        }
+
+        function showAllRecords() {
+            const lines = getStoredDetails();
+            const items = lines.map((text, index) => ({ text, index }));
+            renderRecords(items, true);
         }
 
         const copyButton = document.createElement('button');
@@ -236,15 +304,15 @@
 
             const recordString = result["HOUR"] + " - " + orderedValues.join(', ');
 
-            renderRecords(recordString);
-            copyButton.style.display = 'block';
+            // Save first to get the correct index
+            const currentRecords = getStoredDetails();
+            currentRecords.push(recordString);
+            saveStoredDetails(currentRecords);
 
-            const existingContent = localStorage.getItem('previewContent');
-            if (existingContent) {
-                localStorage.setItem('previewContent', existingContent + '\n' + recordString);
-            } else {
-                localStorage.setItem('previewContent', recordString);
-            }
+            // Render just this new record
+            renderRecords([{ text: recordString, index: currentRecords.length - 1 }], false);
+
+            copyButton.focus();
 
             copyButton.focus();
         });
@@ -268,10 +336,9 @@
             showButton.style.color = '#fff';
             showButton.style.width = '100%';
             showButton.addEventListener('click', () => {
-                const storedContent = localStorage.getItem('previewContent');
-                if (storedContent) {
-                    renderRecords(storedContent);
-                    copyButton.style.display = 'block';
+                const storedContent = getStoredDetails();
+                if (storedContent.length > 0) {
+                    showAllRecords();
                 } else {
                     alert('No data found in LocalStorage!');
                 }
